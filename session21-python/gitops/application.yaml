@@ -1,0 +1,21 @@
+# ArgoCD Application — GitOps: the cluster continuously converges to this repo.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: taskboard
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/rkawasthiii/devops-assignment-homework.git
+    targetRevision: main
+    path: session21-python/kubernetes/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: taskboard
+  syncPolicy:
+    automated:              # auto-apply changes merged to main
+      prune: true           # delete resources removed from git
+      selfHeal: true        # revert manual/drifted cluster changes
+    syncOptions:
+    - CreateNamespace=true

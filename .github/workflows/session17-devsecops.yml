@@ -1,0 +1,135 @@
+name: Session 17 - CI/CD + DevSecOps
+
+on:
+  push:
+    paths:
+      - "session-17-devsecops/**"
+      - ".github/workflows/session17-devsecops.yml"
+  workflow_dispatch:
+
+env:
+  APP_DIR: session-17-devsecops/demo
+
+permissions:
+  contents: read
+  security-events: write   # SARIF uploads to GitHub Security tab
+  packages: write          # GHCR push
+
+jobs:
+  # ==================== CI: BUILD + UNIT TEST ====================
+  build-and-test:
+    name: 1. Build & Unit Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install dependencies
+        working-directory: ${{ env.APP_DIR }}
+        run: pip install -r requirements.txt
+      - name: Run unit tests
+        working-directory: ${{ env.APP_DIR }}
+        run: python -m unittest discover -s tests -v
+
+  # ==================== SECURITY: SAST ====================
+  sast:
+    name: 2. SAST (CodeQL)
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: python
+      - uses: github/codeql-action/analyze@v3
+
+  # ==================== SECURITY: SCA ====================
+  sca:
+    name: 3. SCA (dependency scan)
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: "fs"
+          scan-ref: "${{ env.APP_DIR }}"
+          format: "table"
+          severity: "CRITICAL,HIGH"
+
+  # ==================== SECURITY: SECRET SCANNING ====================
+  secret-scan:
+    name: 4. Secret Scanning (Gitleaks)
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_ENABLE_COMMENTS: false
+
+  # ==================== DOCKER BUILD + IMAGE SCAN ====================
+  docker-build-scan:
+    name: 5. Docker Build + Image Scan
+    runs-on: ubuntu-latest
+    needs: [sast, sca, secret-scan]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t devsecops-demo:${{ github.sha }} ${{ env.APP_DIR }}
+
+      - name: Trivy container image scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: devsecops-demo:${{ github.sha }}
+          format: "table"
+          severity: "CRITICAL,HIGH"
+
+      - name: Security gate — count CRITICAL findings
+        run: |
+          CRIT=$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy image --severity CRITICAL -f json -q \
+            devsecops-demo:${{ github.sha }} | grep -o '"VulnerabilityID"' | wc -l)
+          echo "CRITICAL vulnerabilities found: $CRIT"
+          echo "::notice title=Security Gate::CRITICAL=$CRIT"
+
+  # ==================== CD: PUSH IMAGE ====================
+  push-image:
+    name: 6. Push Image to GHCR
+    runs-on: ubuntu-latest
+    needs: docker-build-scan
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build & push
+        run: |
+          IMAGE=ghcr.io/${{ github.repository_owner }}/devsecops-demo:${{ github.sha }}
+          docker build -t $IMAGE ${{ env.APP_DIR }}
+          docker tag $IMAGE ghcr.io/${{ github.repository_owner }}/devsecops-demo:latest
+          docker push $IMAGE
+          docker push ghcr.io/${{ github.repository_owner }}/devsecops-demo:latest
+
+  # ==================== CD: DEPLOY TO KUBERNETES ====================
+  deploy:
+    name: 7. Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: push-image
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+      - name: Validate & dry-run the Kubernetes manifests
+        run: |
+          kubectl apply -f ${{ env.APP_DIR }}/k8s/ --dry-run=client -o yaml > /dev/null
+          echo "Manifests valid. In production this job runs:"
+          echo "  kubectl apply -f ${{ env.APP_DIR }}/k8s/"
+          echo "  kubectl rollout status deployment/devsecops-demo"
+          echo "(requires kubeconfig stored in secrets.KUBECONFIG pointing at the real cluster)"

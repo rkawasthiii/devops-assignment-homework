@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  APP_ENV: "production"
+  APP_COLOR: "blue"
+  DATABASE_HOST: "db.internal.svc"
+  database.conf: |
+    max_connections=100
+    timeout=30
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: configmap-demo
+spec:
+  containers:
+  - name: app
+    image: nginx:alpine
+    command: ["sleep", "3600"]
+    env:
+    - name: APP_ENV                       # single key -> env var
+      valueFrom:
+        configMapKeyRef:
+          name: app-config
+          key: APP_ENV
+    envFrom:
+    - configMapRef:                       # ALL keys -> env vars
+        name: app-config
+    volumeMounts:
+    - name: config-vol                    # whole ConfigMap -> files
+      mountPath: /etc/app-config
+  volumes:
+  - name: config-vol
+    configMap:
+      name: app-config

@@ -1,0 +1,4 @@
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           1  0.0  0.0   4372  3308 ?        Ss   18:06   0:00 bash -c  sed -i "s/\r$//" system-info.sh chmod +x system-info.sh echo "my-logs processes.txt" | ./system-info.sh echo "" echo "===== verify created files =====" ls -la my-logs/ 
+root          10  0.0  0.0   4372  3320 ?        S    18:06   0:00 /bin/bash ./system-info.sh
+root          19  0.0  0.0   7080  2984 ?        R    18:06   0:00 ps aux

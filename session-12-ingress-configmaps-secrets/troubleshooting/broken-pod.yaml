@@ -1,0 +1,25 @@
+# BROKEN on purpose — homework troubleshooting task.
+# Bug: the pod asks for env var from a ConfigMap named "app-settings",
+# but the ConfigMap below is named "app-config". Pod will never start correctly.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  WELCOME_MSG: "hello from configmap"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: broken-env-pod
+spec:
+  containers:
+  - name: app
+    image: nginx:alpine
+    command: ["sh", "-c", "echo $WELCOME_MSG && sleep 300"]
+    env:
+    - name: WELCOME_MSG
+      valueFrom:
+        configMapKeyRef:
+          name: app-settings        # <-- BUG: wrong name (should be app-config)
+          key: WELCOME_MSG

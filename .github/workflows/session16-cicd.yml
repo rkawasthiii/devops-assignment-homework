@@ -1,0 +1,85 @@
+name: Session 16 - CI/CD Demo
+
+on:
+  push:
+    paths:
+      - "session-16-github-actions/**"
+      - ".github/workflows/session16-cicd.yml"
+  workflow_dispatch:
+
+env:
+  APP_DIR: session-16-github-actions/demo
+
+jobs:
+  # -------- CI: build + test --------
+  build-and-test:
+    name: Build & Test (CI)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run unit tests
+        working-directory: ${{ env.APP_DIR }}
+        run: node --test
+
+      - name: Build app artifact
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          mkdir -p dist
+          cp -r app package.json dist/
+          echo "build-sha: ${{ github.sha }}" > dist/build-info.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-app-build
+          path: ${{ env.APP_DIR }}/dist
+          retention-days: 7
+
+  # -------- CI: docker image build --------
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t cicd-demo:${{ github.sha }} ${{ env.APP_DIR }}
+
+      - name: Smoke test the image
+        run: |
+          docker run -d --name smoke -p 3000:3000 cicd-demo:${{ github.sha }}
+          sleep 2
+          curl -s http://localhost:3000 | grep "Hello World"
+
+  # -------- CD: push image to GHCR --------
+  docker-push:
+    name: Push Image to GHCR (CD)
+    runs-on: ubuntu-latest
+    needs: docker-build
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push image
+        run: |
+          IMAGE=ghcr.io/${{ github.repository_owner }}/cicd-demo:${{ github.sha }}
+          docker build -t $IMAGE ${{ env.APP_DIR }}
+          docker push $IMAGE
+          echo "Pushed $IMAGE"

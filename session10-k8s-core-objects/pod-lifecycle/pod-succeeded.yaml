@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lifecycle-succeeded
+spec:
+  restartPolicy: Never
+  containers:
+  - name: job
+    image: busybox:latest
+    command: ["sh", "-c", "echo 'Job finished successfully'; sleep 2"]

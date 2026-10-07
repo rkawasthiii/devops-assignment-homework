@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  APP_MODE: "prod"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-config-pod
+spec:
+  containers:
+  - name: app
+    image: nginx:alpine
+    env:
+    - name: APP_MODE
+      valueFrom:
+        configMapKeyRef:
+          name: app-config
+          key: APP_MODE_TYPO       # <-- BUG: key does not exist in the ConfigMap

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: crashy
+spec:
+  containers:
+  - name: app
+    image: nginx:alpine
+    command: ["sh", "-c", "echo 'app starting...'; echo 'FATAL: config missing' >&2; exit 1"]

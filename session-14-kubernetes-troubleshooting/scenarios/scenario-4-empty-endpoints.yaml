@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-backend
+  template:
+    metadata:
+      labels:
+        app: web-backend      # <-- pods carry THIS label
+    spec:
+      containers:
+      - name: web
+        image: nginx:alpine
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-backend-svc
+spec:
+  selector:
+    app: webbackend          # <-- BUG: 'webbackend' vs pod label 'web-backend'
+  ports:
+  - port: 80
