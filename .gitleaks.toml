@@ -1,0 +1,12 @@
+title = "DevOps homework gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Intentionally-fake demo secrets used in Kubernetes homework manifests (not real credentials)"
+paths = [
+  '''session-12-ingress-configmaps-secrets/02-secret/secret\.yaml''',
+  '''session-14-kubernetes-troubleshooting/mini-project/.*\.yaml''',
+  '''session21-python/kubernetes/manifests/secret\.yaml''',
+]
