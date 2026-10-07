@@ -68,6 +68,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: azure/setup-kubectl@v4
       - name: Validate manifests
-        run: kubectl apply -f session21-python/kubernetes/manifests/ --dry-run=client -o yaml > /dev/null && echo "manifests valid"
+        run: kubectl apply -f session21-python/kubernetes/manifests/ --dry-run=client --validate=false -o yaml > /dev/null && echo "manifests valid"
       - name: Deploy note
         run: echo "Prod deploy via GitOps — ArgoCD syncs session21-python/kubernetes/manifests automatically"

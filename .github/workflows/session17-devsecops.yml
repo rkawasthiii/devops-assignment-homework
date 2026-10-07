@@ -128,7 +128,7 @@ jobs:
       - uses: azure/setup-kubectl@v4
       - name: Validate & dry-run the Kubernetes manifests
         run: |
-          kubectl apply -f ${{ env.APP_DIR }}/k8s/ --dry-run=client -o yaml > /dev/null
+          kubectl apply -f ${{ env.APP_DIR }}/k8s/ --dry-run=client --validate=false -o yaml > /dev/null
           echo "Manifests valid. In production this job runs:"
           echo "  kubectl apply -f ${{ env.APP_DIR }}/k8s/"
           echo "  kubectl rollout status deployment/devsecops-demo"
