@@ -125,11 +125,14 @@ jobs:
     needs: push-image
     steps:
       - uses: actions/checkout@v4
-      - uses: azure/setup-kubectl@v4
-      - name: Validate & dry-run the Kubernetes manifests
+      - name: Install kubeconform
         run: |
-          kubectl apply -f ${{ env.APP_DIR }}/k8s/ --dry-run=client --validate=false -o yaml > /dev/null
-          echo "Manifests valid. In production this job runs:"
+          curl -sL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kubeconform /usr/local/bin/
+      - name: Validate Kubernetes manifests (offline)
+        run: |
+          kubeconform -strict -summary ${{ env.APP_DIR }}/k8s/
+          echo "In production this job runs:"
           echo "  kubectl apply -f ${{ env.APP_DIR }}/k8s/"
           echo "  kubectl rollout status deployment/devsecops-demo"
           echo "(requires kubeconfig stored in secrets.KUBECONFIG pointing at the real cluster)"
